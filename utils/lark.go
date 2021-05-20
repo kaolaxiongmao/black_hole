@@ -26,7 +26,7 @@ type LarkRequest struct {
 }
 
 func SendLarkNotice(ctx context.Context, msg string) {
-	url := "https://open.feishu.cn/open-apis/bot/v2/hook/a577137f-264e-440b-b1c0-360aa677b818"
+	url := "https://open.feishu.cn/open-apis/bot/v2/hook/4f22e69c-33e6-407b-b1d4-58e08021e7bf"
 	// req.SendLarkWithConfig("default_url")
 	req := LarkRequest{
 		Ctx:         ctx,
