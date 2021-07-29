@@ -90,8 +90,8 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				startMoney = startMoney*(sellPrice-buyPrice)/sellPrice*emptySingle + startMoney - startMoney*orderFeed - startMoney*float64(holdDay)*loadInFeed*emptySingle
 				holdDay = 0
 				nowProfit = (sellPrice - buyPrice) / sellPrice * emptySingle * 100
-				log.Print("[Order], 平空 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
-				log.Print("[Order], 空单利润: %v, 当前总额: %v", nowProfit, startMoney)
+				log.Printf("[Order], 平空 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
+				log.Printf("[Order], 空单利润: %v, 当前总额: %v", nowProfit, startMoney)
 				if nowProfit > 0 {
 					correctSellCnt++
 				}
@@ -101,7 +101,7 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				buyPrice = 0
 				continue
 			}
-			log.Print("[Order], 做多 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
+			log.Printf("[Order], 做多 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
 			//扣除手续费
 			startMoney = startMoney - startMoney*orderFeed
 			tradeFee+= startMoney*orderFeed
@@ -122,8 +122,8 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				startMoney = startMoney - startMoney*orderFeed
 				sellDate = structDatas[i].TimeStampStr
 				nowProfit = (sellPrice - buyPrice) / buyPrice * (mutipleSingle + 1) * 100
-				log.Print("[Order], 平多 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
-				log.Print("[Order], 多单利润: %v, 当前总额: %v", nowProfit, startMoney)
+				log.Printf("[Order], 平多 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
+				log.Printf("[Order], 多单利润: %v, 当前总额: %v", nowProfit, startMoney)
 				if nowProfit > 0 {
 					correctBuyCnt++
 				}
@@ -133,7 +133,7 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				sellPrice = 0
 				continue
 			}
-			log.Print("[Order], 做空 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
+			log.Printf("[Order], 做空 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
 			//扣除手续费
 			tradeFee += startMoney*orderFeed
 			startMoney = startMoney - startMoney*orderFeed
@@ -141,8 +141,8 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 			sellCnt++
 		}
 	}
-	log.Print("做空胜率： %v, 做多胜率: %v, 做空一个bar胜率： %v, 做多一个bar胜率： %v", float64(correctSellCnt)/float64(sellCnt)*100, float64(correctBuyCnt)/float64(buyCnt)*100, float64(correctSellCntOneBar)/float64(sellCnt)*100, float64(correctBuyCntOneBar)/float64(buyCnt)*100)
-	log.Print("交易费率: %v, 借贷费率:%v", tradeFee, loanFee)
+	log.Printf("做空胜率： %v, 做多胜率: %v, 做空一个bar胜率： %v, 做多一个bar胜率： %v", float64(correctSellCnt)/float64(sellCnt)*100, float64(correctBuyCnt)/float64(buyCnt)*100, float64(correctSellCntOneBar)/float64(sellCnt)*100, float64(correctBuyCntOneBar)/float64(buyCnt)*100)
+	log.Printf("交易费率: %v, 借贷费率:%v", tradeFee, loanFee)
 	chart.StartHttpServer("宙斯", "btc", backTestDatas)
 	time.Sleep(time.Second)
 }
@@ -207,7 +207,7 @@ func DrawBias(structDatas []model.KLineBar){
 		var bia float64
 		bia = (KlineDatas[nowIndex].ClosePrice - ma[nowIndex]) /ma[nowIndex]
 		if bia > 0.2{
-			log.Print("乖离率>20:%v", KlineDatas[nowIndex].TimeStampStr)
+			log.Printf("乖离率>20:%v", KlineDatas[nowIndex].TimeStampStr)
 		}
 		startIndex++
 		elements = append(elements, GenBiaElement(bia, KlineDatas[nowIndex].TimeStampStr))

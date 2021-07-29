@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	TradeZbUrl = "https://trade.zb.center/api"
-	DataZbUrl  = "http://api.zb.center/data/v1/"
+	TradeZbUrl = "https://trade.zb.land/api"
+	DataZbUrl  = "http://api.zb.land/data/v1/"
 )
 
 //market名字
