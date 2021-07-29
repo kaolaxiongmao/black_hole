@@ -6,7 +6,9 @@ import (
 	"black_hole/strategy"
 	"bufio"
 	"encoding/csv"
+	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -27,7 +29,7 @@ func TestBackTest(t *testing.T) {
 	kLine := zbLiveData.GetKData()
 	structDatas := kLine["1day"].StructData
 	tradeStrategy := strategy.NewStrategy(model.StrategyParms{
-		SlowMaBars: 20,
+		SlowMaBars: 10,
 		FastMaBars: 5,
 		KlineDatas: structDatas,
 	}, strategy.DoubleMaBuy, strategy.DoubleMaSell)
@@ -107,6 +109,6 @@ func ReadCsv_ConfigFile_Fun(fileName string) []model.KLineBar {
 
 func TestReadCsv(t *testing.T) {
 	structData := ReadCsv_ConfigFile_Fun("../btc.csv")
-	log.Print("structData: %v", structData)
+	log.Printf("structData: %v", structData)
 	time.Sleep(time.Second)
 }

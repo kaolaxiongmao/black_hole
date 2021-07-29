@@ -23,6 +23,7 @@ var mutipleMap = map[float64]float64{
 	2:   -26.6,
 	3:   -17.5,
 }
+var withDrawMap = []float64{34,55,89,144}
 
 //回测模型主主体框架
 //通过传入策略，时间范围，生成一个列表
@@ -36,6 +37,7 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 	var buyDate string
 	var sellDate string
 	var nowProfit float64
+	var withDrawThreadHold int64 = -1
 	//正确做多次数
 	correctBuyCnt := 0
 	correctBuyCntOneBar := 0
@@ -68,12 +70,64 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 						correctBuyCntOneBar++
 					}
 				}
+
 			} else if startStrategy == constdef.Sell {
 				checkIsLiquidate(structDatas[i].TimeStampStr, structDatas[i].HighPrice, sellPrice, emptySingle, holdDay, loadInFeed, true)
 				backTestDatas = append(backTestDatas, genBackTestGraphElement(sellPrice, structDatas[i], true, mutipleSingle, startMoney))
 				if holdDay == 3 {
 					if sellPrice - structDatas[i].ClosePrice > 0 {
 						correctSellCntOneBar++
+					}
+				}
+			}
+			if startStrategy == constdef.Sell && sellPrice > 0{
+				// 计算当前利润率
+				buyDate = structDatas[i].TimeStampStr
+				buyPrice = structDatas[i].ClosePrice
+				loanFee += startMoney*float64(holdDay)*loadInFeed*emptySingle
+				tradeFee += startMoney*orderFeed
+				nowProfit = (sellPrice - buyPrice) / sellPrice * emptySingle * 100
+				if withDrawThreadHold == -1{
+					withDrawThreadHold = CheckWithDrawFlag(nowProfit)
+					log.Printf("设置空withDrawThereadhold %v, date %v, profit %v", withDrawThreadHold, structDatas[i].TimeStampStr, nowProfit)
+				}else{
+					if CheckIsWithDraw(nowProfit, withDrawThreadHold){ // 出现回撤，开始平空
+						startMoney = startMoney*(sellPrice-buyPrice)/sellPrice*emptySingle + startMoney - startMoney*orderFeed - startMoney*float64(holdDay)*loadInFeed*emptySingle
+						log.Printf("平空withDrawThereadhold %v, date %v, checkIsWithDraw, sellPrice %v, buyPrice %v, 总资金 %v", withDrawThreadHold, structDatas[i].TimeStampStr, sellPrice, buyPrice, startMoney)
+						sellPrice = 0
+
+						startStrategy = constdef.StandBy
+						backTestDatas = append(backTestDatas, genBackTestGraphElement(sellPrice, structDatas[i], true, emptySingle, startMoney))
+						holdDay = 0
+						withDrawThreadHold = -1
+					}
+				}
+			}
+			if startStrategy == constdef.Buy && buyPrice > 0{
+				// 计算当前利润率
+				nowProfit = 0
+				sellDate = structDatas[i].TimeStampStr
+				sellPrice = structDatas[i].ClosePrice
+				loanFee += startMoney*float64(holdDay)*loadInFeed*emptySingle
+				tradeFee += startMoney*orderFeed
+				//扣除手续费
+				startMoney = startMoney - startMoney*orderFeed
+				sellDate = structDatas[i].TimeStampStr
+				nowProfit = (sellPrice - buyPrice) / buyPrice * (mutipleSingle + 1) * 100
+				if withDrawThreadHold == -1{
+					withDrawThreadHold = CheckWithDrawFlag(nowProfit)
+					log.Printf("设置多withDrawThereadhold %v, date %v, nowProfit %v, sellPrice %v, buyPrice %v", withDrawThreadHold, structDatas[i].TimeStampStr, nowProfit, sellPrice, buyPrice)
+
+				}else{
+					if CheckIsWithDraw(nowProfit, withDrawThreadHold){
+						// 出现回撤，开始平多
+						startMoney = startMoney*(sellPrice-buyPrice)/buyPrice*(mutipleSingle+1) + startMoney - startMoney*float64(holdDay)*loadInFeed*mutipleSingle
+						log.Printf("平多withDrawThereadhold %v, date %v, checkIsWithDraw, sellPrice %v, buyPrice %v, 总资金 %v", withDrawThreadHold, structDatas[i].TimeStampStr, sellPrice, buyPrice, startMoney)
+						buyPrice = 0
+						startStrategy = constdef.StandBy
+						backTestDatas = append(backTestDatas, genBackTestGraphElement(sellPrice, structDatas[i], true, emptySingle, startMoney))
+						holdDay = 0
+						withDrawThreadHold = -1
 					}
 				}
 			}
@@ -89,9 +143,9 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				tradeFee += startMoney*orderFeed
 				startMoney = startMoney*(sellPrice-buyPrice)/sellPrice*emptySingle + startMoney - startMoney*orderFeed - startMoney*float64(holdDay)*loadInFeed*emptySingle
 				holdDay = 0
-				nowProfit = (sellPrice - buyPrice) / sellPrice * emptySingle * 100
-				log.Print("[Order], 平空 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
-				log.Print("[Order], 空单利润: %v, 当前总额: %v", nowProfit, startMoney)
+				nowProfit = (sellPrice - buyPrice) / buyPrice * (mutipleSingle + 1) * 100
+				log.Printf("[Order], 平空 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
+				log.Printf("[Order], 空单利润: %v, 当前总额: %v", nowProfit, startMoney)
 				if nowProfit > 0 {
 					correctSellCnt++
 				}
@@ -101,7 +155,7 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				buyPrice = 0
 				continue
 			}
-			log.Print("[Order], 做多 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
+			log.Printf("[Order], 做多 BuyDate: %v, BuyPrice: %v", buyDate, buyPrice)
 			//扣除手续费
 			startMoney = startMoney - startMoney*orderFeed
 			tradeFee+= startMoney*orderFeed
@@ -122,8 +176,8 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				startMoney = startMoney - startMoney*orderFeed
 				sellDate = structDatas[i].TimeStampStr
 				nowProfit = (sellPrice - buyPrice) / buyPrice * (mutipleSingle + 1) * 100
-				log.Print("[Order], 平多 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
-				log.Print("[Order], 多单利润: %v, 当前总额: %v", nowProfit, startMoney)
+				log.Printf("[Order], 平多 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
+				log.Printf("[Order], 多单利润: %v, 当前总额: %v", nowProfit, startMoney)
 				if nowProfit > 0 {
 					correctBuyCnt++
 				}
@@ -133,7 +187,7 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 				sellPrice = 0
 				continue
 			}
-			log.Print("[Order], 做空 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
+			log.Printf("[Order], 做空 SellDate: %v, SellPrice: %v", sellDate, sellPrice)
 			//扣除手续费
 			tradeFee += startMoney*orderFeed
 			startMoney = startMoney - startMoney*orderFeed
@@ -141,8 +195,8 @@ func BackTest(tradeStrategy *strategy.Strategy, emptySingle float64, mutipleSing
 			sellCnt++
 		}
 	}
-	log.Print("做空胜率： %v, 做多胜率: %v, 做空一个bar胜率： %v, 做多一个bar胜率： %v", float64(correctSellCnt)/float64(sellCnt)*100, float64(correctBuyCnt)/float64(buyCnt)*100, float64(correctSellCntOneBar)/float64(sellCnt)*100, float64(correctBuyCntOneBar)/float64(buyCnt)*100)
-	log.Print("交易费率: %v, 借贷费率:%v", tradeFee, loanFee)
+	log.Printf("做空胜率： %v, 做多胜率: %v, 做空一个bar胜率： %v, 做多一个bar胜率： %v", float64(correctSellCnt)/float64(sellCnt)*100, float64(correctBuyCnt)/float64(buyCnt)*100, float64(correctSellCntOneBar)/float64(sellCnt)*100, float64(correctBuyCntOneBar)/float64(buyCnt)*100)
+	log.Printf("交易费率: %v, 借贷费率:%v", tradeFee, loanFee)
 	chart.StartHttpServer("宙斯", "btc", backTestDatas)
 	time.Sleep(time.Second)
 }
@@ -183,7 +237,7 @@ func checkIsLiquidate(timeStampStr string, barPrice float64, orderPrice float64,
 	}
 	if !isSell {
 		if barPrice > 0 && orderPrice > 0 {
-			log.Printf("[checkIsLiquidate] 检查多单爆仓： barPrice: %v, orderPrice: %v, timeStampStr: %v, 盈利率: %v", barPrice, orderPrice, timeStampStr, (barPrice-orderPrice)/orderPrice*float64(mutiple)*100)
+			log.Printf("[checkIsLiquidate] 检查多单爆仓： barPrice: %v, orderPrice: %v, timeStampStr: %v, 盈利率: %v", barPrice, orderPrice, timeStampStr, (barPrice-orderPrice)/orderPrice*float64(mutiple+1)*100)
 			if (barPrice-orderPrice)/orderPrice*float64(mutiple)*100-(float64(holdDay)*loadInFeed*100) < mutipleMap[mutiple] {
 				log.Fatalf("[checkIsLiquidate]. 多单爆仓. timeStampStr: %v, maxPrice: %v, orderPirce: %v", timeStampStr, barPrice, orderPrice)
 				time.Sleep(time.Second)
@@ -207,7 +261,7 @@ func DrawBias(structDatas []model.KLineBar){
 		var bia float64
 		bia = (KlineDatas[nowIndex].ClosePrice - ma[nowIndex]) /ma[nowIndex]
 		if bia > 0.2{
-			log.Print("乖离率>20:%v", KlineDatas[nowIndex].TimeStampStr)
+			log.Printf("乖离率>20:%v", KlineDatas[nowIndex].TimeStampStr)
 		}
 		startIndex++
 		elements = append(elements, GenBiaElement(bia, KlineDatas[nowIndex].TimeStampStr))
@@ -219,5 +273,22 @@ func GenBiaElement(bias float64, data string) model.BiasDataElement {
 	return model.BiasDataElement{
 		Data: data,
 		Bias: bias,
+	}
+}
+
+func CheckWithDrawFlag(profit float64) int64{
+	for i := len(withDrawMap) -1; i >= 0; i--{
+		if profit >= withDrawMap[i]{
+			return int64(i)
+		}
+	}
+	return -1
+}
+
+func CheckIsWithDraw(nowProfit float64, threadHold int64) bool{
+	if nowProfit < withDrawMap[threadHold]{
+		return true
+	}else{
+		return false
 	}
 }
